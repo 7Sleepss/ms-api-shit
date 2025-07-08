@@ -1,0 +1,53 @@
+const START_PORT = 6969;
+const END_PORT = 7069;
+let serverPort = null;
+let lastError = '';
+
+try {
+    // Try each port in sequence
+    for (let port = START_PORT; port <= END_PORT; port++) {
+        const url = `http://127.0.0.1:${port}/secret`;
+
+        try {
+            const res = await fetch(url, {
+                method: 'GET'
+            });
+            if (res.ok) {
+                const text = await res.text();
+                if (text === '0xdeadbeef') {
+                    serverPort = port;
+                    console.log(`✅ Server found on port ${port}`);
+                    break;
+                }
+            }
+        } catch (e) {
+            lastError = e.message;
+            // Silent fail, try next port
+        }
+    }
+
+    if (!serverPort) {
+        throw new Error(`Could not locate HTTP server on ports ${START_PORT}-${END_PORT}. Last error: ${lastError}`);
+    }
+
+    // Now send the script content via POST
+    const postUrl = `http://127.0.0.1:${serverPort}/execute`;
+    console.log(`Sending script to ${postUrl}`);
+
+    const response = await fetch(postUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'text/plain'
+        },
+        body: scriptContent
+    });
+
+    if (response.ok) {
+        const resultText = await response.text();
+        console.log(`✅ Script submitted successfully: ${resultText}`);
+        showNotification(`Script sent to server successfully.`, "success");
+    } else {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+}
